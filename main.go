@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
-	"github.com/gorilla/sessions"
 	"github.com/jasonlvhit/gocron"
 )
 
@@ -41,7 +40,6 @@ type BatteryOutputData struct {
 }
 
 var ctx = context.Background()
-var store = sessions.NewCookieStore([]byte("myteam-secret"))
 var projectID = os.Getenv("projectID")
 var url = fmt.Sprintf("http://%v/api/meters/aggregates", os.Getenv("PW2IP"))
 var interval uint64 = 5
