@@ -1,0 +1,8 @@
+indexes:
+- kind: BatteryOutputData
+  properties:
+  - name: DataPointTime
+  - name: Battery  
+  - name: Site
+  - name: Load
+  - name: Solar

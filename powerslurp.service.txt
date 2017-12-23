@@ -1,0 +1,32 @@
+[Unit]
+Description=Power Slurp
+ConditionPathExists=/home/pi/go/src/github.com/thewebwolf/PowerSlurp
+After=network.target
+
+[Service]
+Type=simple
+User=PowerSlurp
+Group=PowerSlurp
+LimitNOFILE=1024
+
+Restart=on-failure
+RestartSec=10
+startLimitIntervalSec=60
+
+WorkingDirectory=/home/pi/go/src/github.com/thewebwolf/PowerSlurp
+ExecStart=/home/pi/go/src/github.com/thewebwolf/PowerSlurp/PowerSlurp
+
+# make sure log directory exists and owned by syslog
+PermissionsStartOnly=true
+ExecStartPre=/bin/mkdir -p /var/log/powerslurp
+ExecStartPre=/bin/chmod 755 /var/log/powerslurp
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=powerslurp
+
+Environment="projectID=powerchat-187002"
+Environment="PW2IP=192.168.1.8"
+Environment="GOOGLE_APPLICATION_CREDENTIALS=/home/pi/PowerChat-cf2d75b4f922.json"
+
+[Install]
+WantedBy=multi-user.target
