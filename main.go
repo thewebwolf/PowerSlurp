@@ -48,7 +48,7 @@ type BatteryOutputData struct {
 var ctx = context.Background()
 var projectID = os.Getenv("projectID")
 var url = fmt.Sprintf("http://%v/api/meters/aggregates", os.Getenv("PW2IP"))
-var interval uint64 = 5
+var interval uint64 = 60
 
 var f MQTT.MessageHandler = func(client MQTT.Client, msg MQTT.Message) {
 	fmt.Printf("TOPIC: %s\n", msg.Topic())
@@ -119,9 +119,7 @@ func NewTlsConfig() *tls.Config {
 	}
 }
 
-func main() {
-	initKeys()
-
+func GetMQTTClient() MQTT.Client {
 	claims := &jwt.StandardClaims{
 		IssuedAt:  time.Now().Unix(),
 		ExpiresAt: time.Now().Unix() + 3600,
@@ -131,7 +129,6 @@ func main() {
 	tokenb := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	ss, _ := tokenb.SignedString(signKey)
 
-	fmt.Println(ss)
 	//create a ClientOptions struct setting the broker address, clientid, turn
 	//off trace output and set the default message handler
 
@@ -141,8 +138,6 @@ func main() {
 	opts.AddBroker("ssl://mqtt.googleapis.com:8883")
 	opts.SetTLSConfig(tlsconfig)
 	mqttClientID := fmt.Sprintf("projects/%v/locations/asia-east1/registries/home/devices/dev1", projectID)
-
-	fmt.Println(mqttClientID)
 
 	opts.SetClientID(mqttClientID)
 	opts.SetUsername("unused")
@@ -157,40 +152,21 @@ func main() {
 		panic(token.Error())
 	}
 
-	//subscribe to the topic /go-mqtt/sample and request messages to be delivered
-	//at a maximum qos of zero, wait for the receipt to confirm the subscription
-	if token := c.Subscribe("projects/powerchat-187002/topics/actions", 0, nil); token.Wait() && token.Error() != nil {
-		fmt.Println(token.Error())
-		os.Exit(1)
-	}
-
-	//Publish 5 messages to /go-mqtt/sample at qos 1 and wait for the receipt
-	//from the server after sending each message
-	for i := 0; i < 5; i++ {
-		text := fmt.Sprintf("this is msg #%d!", i)
-		token := c.Publish("projects/powerchat-187002/topics/devicetelemetry", 0, false, text)
-		token.Wait()
-	}
-
-	time.Sleep(3 * time.Second)
-
-	//unsubscribe from /go-mqtt/sample
-	if token := c.Unsubscribe("projects/powerchat-187002/topics/actions"); token.Wait() && token.Error() != nil {
-		fmt.Println(token.Error())
-		os.Exit(1)
-	}
-
-	c.Disconnect(250)
+	return c
 }
 
-func main2() {
+func main() {
+	initKeys()
+
 	gob.Register(BatteryOutputData{})
 	gob.Register(DataLoad{})
 	gocron.Every(interval).Seconds().Do(task)
 	<-gocron.Start()
+
 }
 
 func task() {
+	client := GetMQTTClient()
 
 	clientDataStore, err := datastore.NewClient(ctx, projectID)
 	if err != nil {
@@ -230,4 +206,11 @@ func task() {
 	if _, err := clientDataStore.Put(ctx, dataKey, &outPutData); err != nil {
 		log.Fatalf("Failed to save data entry: %v", err)
 	}
+
+	text := fmt.Sprintf("Current Solar Output %v", outPutData.Solar.InstantPower)
+	fmt.Println(text)
+	token := client.Publish("projects/powerchat-187002/topics/devicetelemetry", 0, false, text)
+	token.Wait()
+
+	client.Disconnect(250)
 }
